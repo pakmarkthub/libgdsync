@@ -64,6 +64,13 @@ static gdr_t gdr = 0;
 
 //-----------------------------------------------------------------------------
 
+static inline int is_gdr_mh_null(gdr_mh_t mh)
+{
+    return mh.h == 0;
+}
+
+//-----------------------------------------------------------------------------
+
 static int gds_map_gdr_memory(gds_mem_desc_t *desc, CUdeviceptr d_buf, size_t size, int flags)
 {
         gdr_mh_t mh;
@@ -125,10 +132,10 @@ static int gds_map_gdr_memory(gds_mem_desc_t *desc, CUdeviceptr d_buf, size_t si
         desc->alloc_size = buf_size;
         desc->mh = mh;
         gds_dbg("d_ptr=%lx h_ptr=%p bar_ptr=%p flags=0x%08x alloc_size=%zd mh=%x\n",
-                (unsigned long)desc->d_ptr, desc->h_ptr, desc->bar_ptr, desc->flags, desc->alloc_size, desc->mh);
+                (unsigned long)desc->d_ptr, desc->h_ptr, desc->bar_ptr, desc->flags, desc->alloc_size, desc->mh.h);
 out:
         if (ret) {
-                if (mh) {
+                if (!is_gdr_mh_null(mh)) {
                         if (bar_ptr)
                                 gdr_unmap(gdr, mh, bar_ptr, buf_size);
                         gdr_unpin_buffer(gdr, mh);
@@ -147,7 +154,7 @@ static int gds_unmap_gdr_memory(gds_mem_desc_t *desc)
                 gds_err("GDRCopy library is not initialized\n");
                 exit(EXIT_FAILURE);
         }
-        if (!desc->d_ptr || !desc->h_ptr || !desc->alloc_size || !desc->mh || !desc->bar_ptr) {
+        if (!desc->d_ptr || !desc->h_ptr || !desc->alloc_size || is_gdr_mh_null(desc->mh) || !desc->bar_ptr) {
                 gds_err("invalid desc\n");
                 return EINVAL;
         }
@@ -186,7 +193,7 @@ static int gds_free_gdr_memory(gds_mem_desc_t *desc)
 {
         int ret = 0;
         assert(desc);
-        if (!desc->d_ptr || !desc->h_ptr || !desc->alloc_size || !desc->mh || !desc->bar_ptr) {
+        if (!desc->d_ptr || !desc->h_ptr || !desc->alloc_size || is_gdr_mh_null(desc->mh) || !desc->bar_ptr) {
                 gds_err("invalid desc\n");
                 return EINVAL;
         }
@@ -243,7 +250,7 @@ static int gds_alloc_pinned_memory(gds_mem_desc_t *desc, size_t size, int flags)
         desc->bar_ptr = NULL;
         desc->flags = flags;
         desc->alloc_size = size;
-        desc->mh = 0;        
+        desc->mh.h = 0;        
         gds_dbg("d_ptr=%lx h_ptr=%p flags=0x%08x alloc_size=%zd\n",
                 (unsigned long)desc->d_ptr, desc->h_ptr, desc->flags, desc->alloc_size);
 out:
